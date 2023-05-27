@@ -1,15 +1,23 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3 AS base
+FROM centos:7.9.2009 AS base
 
-RUN addgroup -S datahub && adduser -S datahub -G datahub
+RUN export LANG=zh_CN.UTF-8
+RUN rm -f /etc/localtime && ln -sv /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo "Asia/Shanghai" > /etc/timezone
 
-# Upgrade Alpine and base packages
-# PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
-RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl sqlite \
-    && apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+# 创建用户和用户组，跟yaml编排里的spec.template.spec.containers. securityContext.runAsUser: 9999
+RUN groupadd --system --gid=9999 datahub && useradd --system --home-dir /home/datahub --uid=9999 --gid=datahub datahub
+
+# 安装sudo
+RUN yum -y install sudo mysql-client mariadb-connector-c sqlite wget java-11-openjdk java-11-openjdk-devel
+
+RUN chmod 640 /etc/sudoers
+
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-11.0.12.0.7-0.el7_9.x86_64
+ENV JRE_HOME=$JAVA_HOME/jre
+ENV CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/jre/lib/tools.jar:$JRE_HOME/lib:$CLASSPATH
+ENV PATH=$JAVA_HOME/bin:$PATH
 
 FROM base as prod-install
 

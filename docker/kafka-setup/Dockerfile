@@ -8,10 +8,19 @@ RUN rm /usr/share/java/cp-base-new/snakeyaml-*.jar \
     && wget -P /usr/share/java/cp-base-new $MAVEN_REPO/org/yaml/snakeyaml/$SNAKEYAML_VERSION/snakeyaml-$SNAKEYAML_VERSION.jar
 
 # Based on https://github.com/blacktop's alpine kafka build
-FROM python:3-alpine
+FROM  centos/python-38-centos7
+
+# 安装sudo
+RUN yum -y install sudo coreutils git  curl ca-certificates jq gcc musl-dev libffi-dev zip java-11-openjdk java-11-openjdk-devel
+
+RUN chmod 640 /etc/sudoers
 
 ENV KAFKA_VERSION 3.4.0
 ENV SCALA_VERSION 2.13
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-11.0.12.0.7-0.el7_9.x86_64
+ENV JRE_HOME=$JAVA_HOME/jre
+ENV CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/jre/lib/tools.jar:$JRE_HOME/lib:$CLASSPATH
+ENV PATH=$JAVA_HOME/bin:$PATH
 
 # Set the classpath for JARs required by `cub`
 ENV CUB_CLASSPATH='"/usr/share/java/cp-base-new/*"'
@@ -24,10 +33,6 @@ ARG PYTHON_CONFLUENT_DOCKER_UTILS_INSTALL_SPEC="git+https://github.com/confluent
 
 LABEL name="kafka" version=${KAFKA_VERSION}
 
-RUN apk add --no-cache bash coreutils
-RUN apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
-
-RUN apk add --no-cache -t .build-deps git curl ca-certificates jq gcc musl-dev libffi-dev zip
 RUN mkdir -p /opt \
   && mirror=$(curl --stderr /dev/null https://www.apache.org/dyn/closer.cgi\?as_json\=1 | jq -r '.preferred') \
   && curl -sSL "${mirror}kafka/${KAFKA_VERSION}/kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz" \
